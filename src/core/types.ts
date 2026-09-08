@@ -10,6 +10,10 @@ export type DiagnosticCode =
   | "CURL_CAPABILITY_MISSING"
   | "CURL_BACKEND_JSON_FALLBACK"
   | "CURL_UNSUPPORTED_SCHEME"
+  | "POSTMAN_INVALID_COLLECTION"
+  | "POSTMAN_EMPTY_COLLECTION"
+  | "POSTMAN_UNSUPPORTED_BODY_MODE"
+  | "POSTMAN_VARIABLE_UNRESOLVED"
   | "BODY_JSON_INVALID"
   | "PATH_MERGE_CONFLICT"
   | "OPERATION_ID_COLLISION"
@@ -84,6 +88,13 @@ export interface NormalizedRequest {
   readonly cookies: readonly ParameterValue[];
   readonly body?: RequestBody;
   readonly auth?: RequestAuth;
+  /**
+   * OpenAPI extensions (x-*) to merge onto the generated operation.
+   * Keys should start with "x-" (e.g. "x-postman-scripts").
+   * When multiple requests map to the same operation, extensions are
+   * shallow-merged; later requests do not overwrite earlier keys.
+   */
+  readonly extensions?: Readonly<Record<string, unknown>>;
 }
 
 export interface AdapterContext {

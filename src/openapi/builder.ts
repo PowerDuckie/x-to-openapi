@@ -73,6 +73,8 @@ interface OperationAccumulator {
   bodies: Map<string, Schema[]>;
   auth: Set<string>;
   samples: number;
+  /** OpenAPI extensions collected from requests; first-wins per key. */
+  extensions: Map<string, unknown>;
 }
 
 function isDocumentedHeader(header: Header, includeCommon: boolean): boolean {
@@ -339,6 +341,7 @@ export function buildOpenApi32(
       bodies: new Map(),
       auth: new Set(),
       samples: 0,
+      extensions: new Map(),
     };
 
     accumulator.samples += 1;
@@ -402,6 +405,16 @@ export function buildOpenApi32(
       }
     }
 
+    // Collect OpenAPI extensions; first-wins per key so the earliest
+    // request in the batch sets the value.
+    if (request.extensions) {
+      for (const [key, value] of Object.entries(request.extensions)) {
+        if (!accumulator.extensions.has(key)) {
+          accumulator.extensions.set(key, value);
+        }
+      }
+    }
+
     operations.set(key, accumulator);
   }
 
@@ -461,6 +474,13 @@ export function buildOpenApi32(
       operation.security = [...accumulator.auth].map((name) => ({
         [name]: [],
       }));
+    }
+
+    // Merge collected OpenAPI extensions onto the operation.
+    if (accumulator.extensions.size > 0) {
+      for (const [key, value] of accumulator.extensions) {
+        operation[key] = value;
+      }
     }
 
     const item = (paths[accumulator.path] ??= {});

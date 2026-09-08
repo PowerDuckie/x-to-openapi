@@ -1,0 +1,34 @@
+{
+  "name": "@powerduck/x-to-openapi",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Extensible production-grade X-to-OpenAPI 3.2 conversion framework",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --noEmit && tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build",
+    "demo": "tsx examples/demo.ts",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@scalar/openapi-parser": "^0.28.16",
+    "@scalar/openapi-types": "^0.9.5",
+    "curlconverter": "^4.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "tsx": "^4.0.0",
+    "vitest": "^3.0.0",
+    "terser": "^5.51.2",
+    "ts-node": "^10.9.2",
+    "tsup": "^8.1.0"
+  }
+}

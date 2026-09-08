@@ -128,7 +128,7 @@ export class XToOpenApi {
       if (cause instanceof ConversionError) throw cause;
 
       bag.report({
-        code: "CURL_PARSE_FAILED",
+        code: "ADAPTER_PARSE_FAILED",
         severity: "error",
         source: adapter.id,
         message: cause instanceof Error ? cause.message : String(cause),

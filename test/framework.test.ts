@@ -312,7 +312,7 @@ describe("DiagnosticBag", () => {
 
   it("deduplicates identical diagnostics", () => {
     const bag = new DiagnosticBag();
-    const d = { code: "NO_REQUESTS", severity: "warning", message: "test" };
+    const d = { code: "NO_REQUESTS" as const, severity: "warning" as const, message: "test" };
     bag.report(d);
     bag.report(d);
     expect(bag.items).toHaveLength(1);
@@ -320,8 +320,8 @@ describe("DiagnosticBag", () => {
 
   it("does not deduplicate different messages", () => {
     const bag = new DiagnosticBag();
-    bag.report({ code: "NO_REQUESTS", severity: "warning", message: "a" });
-    bag.report({ code: "NO_REQUESTS", severity: "warning", message: "b" });
+    bag.report({ code: "NO_REQUESTS" as const, severity: "warning" as const, message: "a" });
+    bag.report({ code: "NO_REQUESTS" as const, severity: "warning" as const, message: "b" });
     expect(bag.items).toHaveLength(2);
   });
 

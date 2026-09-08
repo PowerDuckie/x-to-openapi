@@ -1,4 +1,22 @@
-export type Schema = Record<string, unknown>;
+/**
+ * Structural JSON Schema subset used for inferred request/response bodies.
+ * Kept as an interface (not Record<string, unknown>) so property access is
+ * type-checked; the index signature permits OpenAPI extensions and fields
+ * we do not explicitly model.
+ */
+export interface Schema {
+  type?: string | string[];
+  format?: string;
+  properties?: Record<string, Schema>;
+  required?: string[];
+  items?: Schema;
+  example?: unknown;
+  contentMediaType?: string;
+  description?: string;
+  nullable?: boolean;
+  /** OpenAPI extensions and any unmodeled fields. */
+  [key: string]: unknown;
+}
 
 const INTEGER = /^[-+]?(?:0|[1-9]\d*)$/;
 const NUMBER = /^[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:e[-+]?\d+)?$/i;
@@ -104,12 +122,9 @@ export function mergeSchemas(schemas: readonly Schema[]): Schema {
     const requiredCounts = new Map<string, number>();
 
     for (const schema of items) {
-      const schemaProperties = (schema.properties ?? {}) as Record<
-        string,
-        Schema
-      >;
+      const schemaProperties = schema.properties ?? {};
       const required = new Set(
-        (Array.isArray(schema.required) ? schema.required : []) as string[],
+        Array.isArray(schema.required) ? schema.required : [],
       );
 
       for (const [key, child] of Object.entries(schemaProperties)) {
@@ -135,7 +150,7 @@ export function mergeSchemas(schemas: readonly Schema[]): Schema {
   }
 
   if (allTypes.length === 1 && allTypes[0] === "array") {
-    const itemSchemas = items.map((schema) => (schema.items ?? {}) as Schema);
+    const itemSchemas = items.map((schema) => schema.items ?? {});
     return { type: "array", items: mergeSchemas(itemSchemas) };
   }
 

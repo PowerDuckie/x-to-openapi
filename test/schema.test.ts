@@ -94,20 +94,20 @@ describe("jsonSchema - from parsed JSON", () => {
   it("infers array of strings", () => {
     const s = jsonSchema(["a", "b", "c"]);
     expect(s.type).toBe("array");
-    expect(s.items.type).toBe("string");
+    expect(s.items!.type).toBe("string");
   });
 
   it("infers array of mixed types", () => {
     const s = jsonSchema([1, "two", true]);
     expect(s.type).toBe("array");
-    expect(s.items.type).toEqual(["integer", "string", "boolean"]);
+    expect(s.items!.type).toEqual(["integer", "string", "boolean"]);
   });
 
   it("infers object with properties", () => {
     const s = jsonSchema({ name: "Ada", age: 36 });
     expect(s.type).toBe("object");
-    expect(s.properties.name.type).toBe("string");
-    expect(s.properties.age.type).toBe("integer");
+    expect(s.properties!.name.type).toBe("string");
+    expect(s.properties!.age.type).toBe("integer");
     expect(s.required).toEqual(["name", "age"]);
   });
 
@@ -120,14 +120,14 @@ describe("jsonSchema - from parsed JSON", () => {
 
   it("infers nested objects", () => {
     const s = jsonSchema({ user: { name: "Ada", roles: ["admin"] } });
-    expect(s.properties.user.type).toBe("object");
-    expect(s.properties.user.properties.name.type).toBe("string");
-    expect(s.properties.user.properties.roles.type).toBe("array");
+    expect(s.properties!.user.type).toBe("object");
+    expect(s.properties!.user.properties!.name.type).toBe("string");
+    expect(s.properties!.user.properties!.roles.type).toBe("array");
   });
 
   it("includes examples when includeExample is true", () => {
     const s = jsonSchema({ name: "Ada" }, true);
-    expect(s.properties.name.example).toBe("Ada");
+    expect(s.properties!.name.example).toBe("Ada");
   });
 });
 
@@ -152,8 +152,8 @@ describe("mergeSchemas - object merging", () => {
         required: ["a", "b"],
       },
     ]);
-    expect(merged.properties.a.type).toBe("integer");
-    expect(merged.properties.b.type).toBe("string");
+    expect(merged.properties!.a.type).toBe("integer");
+    expect(merged.properties!.b.type).toBe("string");
   });
 
   it("marks property required only when present in all samples", () => {
@@ -187,9 +187,9 @@ describe("mergeSchemas - object merging", () => {
         required: ["user"],
       },
     ]);
-    expect(merged.properties.user.properties.name.type).toBe("string");
-    expect(merged.properties.user.properties.age.type).toBe("integer");
-    expect(merged.properties.user.required).toEqual(["name"]);
+    expect(merged.properties!.user.properties!.name.type).toBe("string");
+    expect(merged.properties!.user.properties!.age.type).toBe("integer");
+    expect(merged.properties!.user.required).toEqual(["name"]);
   });
 });
 
@@ -200,7 +200,7 @@ describe("mergeSchemas - array merging", () => {
       { type: "array", items: { type: "integer" } },
     ]);
     expect(merged.type).toBe("array");
-    expect(merged.items.type).toEqual(["string", "integer"]);
+    expect(merged.items!.type).toEqual(["string", "integer"]);
   });
 });
 

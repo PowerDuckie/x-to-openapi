@@ -7,7 +7,7 @@ const adapter = new CurlAdapter();
 const report = () => {};
 const ctx = { report, strict: false };
 
-async function parse(command: string): Promise<NormalizedRequest[]> {
+async function parse(command: string | readonly string[]): Promise<NormalizedRequest[]> {
   return adapter.parse(command, ctx);
 }
 

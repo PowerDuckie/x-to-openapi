@@ -196,6 +196,7 @@ interface Diagnostic {
 
 | Code | Severity | Meaning |
 |------|----------|---------|
+| `ADAPTER_PARSE_FAILED` | error | The selected adapter threw an unexpected error during parsing. |
 | `CURL_PARSE_FAILED` | error | A curl command could not be parsed. |
 | `CURL_EMPTY_INPUT` | warning | No curl commands found in the input. |
 | `CURL_CAPABILITY_MISSING` | error | No usable curlconverter generator is available. |
@@ -207,7 +208,7 @@ interface Diagnostic {
 | `POSTMAN_VARIABLE_UNRESOLVED` | info | A Postman variable (`{{name}}`) was left verbatim. |
 | `BODY_JSON_INVALID` | warning | A body declared as JSON is not valid JSON; documented as text/plain. |
 | `PATH_MERGE_CONFLICT` | warning | The same method+path is served by multiple origins; samples were merged. |
-| `OPERATION_ID_COLLISION` | info | An operationId was already used; a numeric suffix was appended. |
+| `OPERATION_ID_COLLISION` | info | Two paths produced the same operationId base; the second was renamed with a numeric suffix. |
 | `PSEUDO_HEADER_DROPPED` | info | An HTTP/2 pseudo-header (`:authority`, etc.) was dropped. |
 | `MULTIPLE_SERVERS` | warning | Requests span multiple origins; all are listed in `servers`. |
 | `NO_REQUESTS` | warning | No requests were converted; emitting an empty document. |
@@ -615,13 +616,16 @@ This library does not ship a CLI. For a CI-ready command-line tool that batch-te
 # Install dependencies
 npm install
 
-# Type check
+# Type check (src only)
 npm run typecheck
+
+# Type check (src + test files)
+npx tsc --project tsconfig.test.json
 
 # Build (ESM + CJS + type declarations, minified)
 npm run build
 
-# Run tests (211 tests across 6 files)
+# Run tests (284 tests across 7 files)
 npm test
 
 # Watch mode
@@ -632,15 +636,15 @@ npx vitest watch
 
 | File | Tests | Coverage |
 |------|-------|----------|
-| `framework.test.ts` | 50+ | End-to-end conversion, options validation, registry, diagnostics, serialization |
+| `framework.test.ts` | 48 | End-to-end conversion, options validation, registry, diagnostics, serialization |
 | `curl-adapter.test.ts` | 44 | Methods, URLs, headers, cookies, JSON/form/multipart/XML/binary bodies, auth, errors |
 | `postman-adapter.test.ts` | 72 | canHandle, basic parsing, nested folders, URL formats, headers, query, all body modes, auth inheritance, test scripts (x-postman-scripts), error handling, full OpenAPI integration, canonical exports |
-| `builder.test.ts` | 42 | Document structure, methods, query/header/cookie params, all body types, security, useServerBasePath, collisions, extensions passthrough |
+| `builder.test.ts` | 43 | Document structure, methods, query/header/cookie params, all body types, security, useServerBasePath, collisions, extensions passthrough |
 | `schema.test.ts` | 34 | Scalar inference, JSON schema, merge logic |
 | `paths.test.ts` | 20 | Identifier detection, path templating, edge cases |
 | `split.test.ts` | 23 | Command splitting, quotes, continuations, prompts, edge cases |
 
-**Total: 283+ tests across 7 files.**
+**Total: 284 tests across 7 files.**
 
 ---
 

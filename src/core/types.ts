@@ -5,6 +5,7 @@ export type JsonObject = Record<string, unknown>;
 export type Severity = "info" | "warning" | "error";
 
 export type DiagnosticCode =
+  | "ADAPTER_PARSE_FAILED"
   | "CURL_PARSE_FAILED"
   | "CURL_EMPTY_INPUT"
   | "CURL_CAPABILITY_MISSING"

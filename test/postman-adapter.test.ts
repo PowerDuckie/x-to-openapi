@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { PostmanAdapter } from "../src/adapters/postman/index.js";
 import { postmanToOpenApi, buildOpenApi32 } from "../src/index.js";
-import type { PostmanCollection } from "../src/adapters/postman/types.js";
+import type {
+  PostmanCollection,
+  PostmanRequestItem,
+} from "../src/adapters/postman/types.js";
 
 function collection(
   items: PostmanCollection["item"],
@@ -23,11 +26,11 @@ function reqItem(
   method: string,
   url: string,
   overrides: Record<string, unknown> = {},
-): Record<string, unknown> {
+): PostmanRequestItem {
   return {
     name,
     request: { method, url, header: [], ...overrides },
-  };
+  } as PostmanRequestItem;
 }
 
 const adapter = new PostmanAdapter();
@@ -646,7 +649,7 @@ describe("PostmanAdapter - body modes", () => {
       ]),
       ctx,
     );
-    expect(result[0]!.body!.fields[0]!.fileName).toBe("/tmp/a.png");
+    expect(result[0]!.body!.fields![0]!.fileName).toBe("/tmp/a.png");
   });
 
   it("parses file body mode as binary", async () => {
@@ -1234,7 +1237,7 @@ describe("PostmanAdapter - full OpenAPI conversion", () => {
     );
 
     expect(result.ok).toBe(true);
-    const op = (result.document.paths["/users"] as any)?.post;
+    const op = (result.document.paths!["/users"] as any)?.post;
     expect(op).toBeDefined();
     expect(op.operationId).toBe("postUsers");
     expect(op.requestBody.content["application/json"].schema.properties.name.type).toBe(
@@ -1289,7 +1292,7 @@ describe("PostmanAdapter - full OpenAPI conversion", () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(Object.keys(result.document.paths).sort()).toEqual([
+    expect(Object.keys(result.document.paths!).sort()).toEqual([
       "/login",
       "/users",
       "/users/{userId}",
@@ -1317,7 +1320,7 @@ describe("PostmanAdapter - full OpenAPI conversion", () => {
       type: "http",
       scheme: "bearer",
     });
-    const op = (result.document.paths["/secure"] as any)?.get;
+    const op = (result.document.paths!["/secure"] as any)?.get;
     expect(op.security).toEqual([{ bearerAuth: [] }]);
   });
 
@@ -1340,7 +1343,7 @@ describe("PostmanAdapter - full OpenAPI conversion", () => {
         },
       ]),
     );
-    const op = (result.document.paths["/upload"] as any)?.post;
+    const op = (result.document.paths!["/upload"] as any)?.post;
     const content = op.requestBody.content["multipart/form-data"];
     expect(content.schema.properties.title.type).toBe("string");
     expect(content.schema.properties.file.type).toBe("string");

@@ -8,7 +8,7 @@ import type {
   RequestBody,
   ResolvedConvertOptions,
 } from "../core/types.js";
-import { operationId, tagFor } from "./naming.js";
+import { operationId, operationIdBase, tagFor } from "./naming.js";
 import { buildPathTemplates } from "./paths.js";
 import { jsonSchema, mergeSchemas, scalar, type Schema } from "./schema.js";
 
@@ -424,18 +424,19 @@ export function buildOpenApi32(
   for (const accumulator of [...operations.values()].sort((a, b) =>
     a.path.localeCompare(b.path),
   )) {
+    const base = operationIdBase(accumulator.method, accumulator.path);
     const id = operationId(
       accumulator.method,
       accumulator.path,
       usedOperationIds,
     );
 
-    if (usedOperationIds.has(id)) {
+    if (usedOperationIds.has(base)) {
       report({
         code: "OPERATION_ID_COLLISION",
         severity: "info",
         path: accumulator.path,
-        message: `operationId "${id}" was already used; a numeric suffix was appended.`,
+        message: `operationId "${base}" was already used; renamed to "${id}".`,
       });
     }
     usedOperationIds.add(id);

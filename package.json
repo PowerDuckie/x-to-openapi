@@ -1,6 +1,6 @@
 {
   "name": "@powerduck/x-to-openapi",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Extensible production-grade X-to-OpenAPI 3.2 conversion framework",
   "exports": {
@@ -9,6 +9,12 @@
       "import": "./dist/index.js"
     }
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc --noEmit && tsup",
     "typecheck": "tsc --noEmit",

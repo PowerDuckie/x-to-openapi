@@ -50,11 +50,8 @@ export function pathParameterName(
   return `${base}${suffix}`;
 }
 
-export function operationId(
-  method: string,
-  path: string,
-  used: ReadonlySet<string>,
-): string {
+/** Computes the canonical (pre-dedup) operationId base for a method+path. */
+export function operationIdBase(method: string, path: string): string {
   const tail = path
     .split("/")
     .filter(Boolean)
@@ -64,7 +61,15 @@ export function operationId(
     })
     .join("_");
 
-  const base = camelCase(`${method}_${tail || "root"}`);
+  return camelCase(`${method}_${tail || "root"}`);
+}
+
+export function operationId(
+  method: string,
+  path: string,
+  used: ReadonlySet<string>,
+): string {
+  const base = operationIdBase(method, path);
 
   if (!used.has(base)) return base;
 

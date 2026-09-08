@@ -3,8 +3,17 @@ import { describe, expect, it } from "vitest";
 import { buildOpenApi32 } from "../src/openapi/builder.js";
 import type {
   NormalizedRequest,
+  OpenApiDocument,
   ResolvedConvertOptions,
 } from "../src/core/types.js";
+
+/**
+ * Test document type with non-optional paths for ergonomic access.
+ * buildOpenApi32 always emits a paths object, so this is safe in tests.
+ */
+type TestDocument = OpenApiDocument & {
+  paths: Record<string, Record<string, any>>;
+};
 
 const baseOptions: ResolvedConvertOptions = {
   openapiVersion: "3.2.0",
@@ -46,8 +55,8 @@ function req(
 function build(
   requests: NormalizedRequest[],
   options: Partial<ResolvedConvertOptions> = {},
-) {
-  return buildOpenApi32(requests, { ...baseOptions, ...options }, report);
+): TestDocument {
+  return buildOpenApi32(requests, { ...baseOptions, ...options }, report) as TestDocument;
 }
 
 describe("buildOpenApi32 - basic structure", () => {
@@ -297,7 +306,7 @@ describe("buildOpenApi32 - request body", () => {
       ],
       baseOptions,
       (d) => diagnostics.push(d),
-    );
+    ) as TestDocument;
     const content = (doc.paths["/x"]?.post as any).requestBody.content;
     expect(content["application/json"]).toBeUndefined();
     expect(content["text/plain"].schema.type).toBe("string");
@@ -588,14 +597,13 @@ describe("buildOpenApi32 - operationId collision", () => {
       ],
       baseOptions,
       (d) => diagnostics.push(d),
-    );
+    ) as TestDocument;
     // /users and /users/ normalize to same path, so only one operation
     expect(doc.paths["/users"]?.get).toBeTruthy();
   });
 
-  it("reports OPERATION_ID_COLLISION when suffix is needed", () => {
+  it("does not report collision for distinct operationIds", () => {
     const diagnostics: { code: string }[] = [];
-    // Two different paths that produce the same operationId base
     buildOpenApi32(
       [
         req("get", "https://e.com/v1/users", { sourceIndex: 0 }),
@@ -604,12 +612,29 @@ describe("buildOpenApi32 - operationId collision", () => {
       baseOptions,
       (d) => diagnostics.push(d),
     );
-    // getV1Users and getV2Users are different, no collision
-    // This test verifies the diagnostic path exists; actual collision
-    // requires paths that normalize to same operationId
     expect(diagnostics.every((d) => d.code !== "OPERATION_ID_COLLISION")).toBe(
       true,
     );
+  });
+
+  it("reports OPERATION_ID_COLLISION when paths produce the same base", () => {
+    const diagnostics: { code: string; message: string }[] = [];
+    // /Users and /users both camelCase to getUsers, so the second is suffixed.
+    const doc = buildOpenApi32(
+      [
+        req("get", "https://e.com/Users", { sourceIndex: 0 }),
+        req("get", "https://e.com/users", { sourceIndex: 1 }),
+      ],
+      baseOptions,
+      (d) => diagnostics.push(d),
+    ) as TestDocument;
+    const collision = diagnostics.find((d) => d.code === "OPERATION_ID_COLLISION");
+    expect(collision).toBeDefined();
+    expect(collision!.message).toContain("getUsers");
+    // First operation keeps getUsers, second gets getUsers2.
+    const ids = [doc.paths["/Users"]?.get?.operationId, doc.paths["/users"]?.get?.operationId];
+    expect(ids).toContain("getUsers");
+    expect(ids).toContain("getUsers2");
   });
 });
 

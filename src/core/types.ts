@@ -77,6 +77,8 @@ export interface NormalizedRequest {
   /** Lowercase token, e.g. "get", "post", "purge". */
   readonly method: string;
   readonly url: URL;
+  /** String form of `url`, populated for JSON-safe serialization. */
+  readonly urlString?: string;
   readonly headers: readonly Header[];
   readonly query: readonly ParameterValue[];
   readonly cookies: readonly ParameterValue[];

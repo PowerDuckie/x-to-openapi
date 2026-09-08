@@ -25,7 +25,12 @@ export function scalar(value: string, includeExample = false): Schema {
   ) {
     return { type: "integer", ...example };
   }
-  if (NUMBER.test(value) && !/^0\d/.test(value))
+  if (
+    NUMBER.test(value) &&
+    !/^0\d/.test(value) &&
+    value.replace(/^[-+]/, "").replace(/[.eE].*$/, "").length <=
+      SAFE_INTEGER_LENGTH
+  )
     return { type: "number", ...example };
 
   return { type: "string", ...example };
@@ -138,18 +143,18 @@ export function mergeSchemas(schemas: readonly Schema[]): Schema {
   const normalized = allTypes.includes("number")
     ? allTypes.filter((type) => type !== "integer")
     : allTypes;
-  const formats = [
-    ...new Set(
-      items
-        .map((schema) => schema.format)
-        .filter((format): format is string => typeof format === "string"),
-    ),
-  ];
+
+  // Keep format only when every sample declares the same one.
+  const formatValues = items.map((schema) => schema.format);
+  const allHaveFormat = formatValues.every(
+    (f) => typeof f === "string",
+  );
+  const uniqueFormats = [...new Set(formatValues.filter((f): f is string => typeof f === "string"))];
 
   return {
     type: normalized.length === 1 ? normalized[0]! : normalized,
-    ...(normalized.length === 1 && formats.length === 1
-      ? { format: formats[0] }
+    ...(allHaveFormat && uniqueFormats.length === 1
+      ? { format: uniqueFormats[0] }
       : {}),
   };
 }

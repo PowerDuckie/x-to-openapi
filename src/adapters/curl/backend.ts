@@ -260,11 +260,27 @@ function fromJson(output: unknown): RawRequest {
   if (!inner) throw new Error("curlconverter JSON output contained no url");
 
   const headers = toHeaders(inner.headers);
+  const contentType = headerValue(headers, "content-type");
+  const isFormUrlEncoded = contentType === "application/x-www-form-urlencoded";
+
+  // Multipart: files + multipart_data (or data when files exist).
   const formFields = jsonFormFields(
     inner.files,
     inner.multipart_data ?? (inner.files ? inner.data : undefined),
   );
-  const bodyText = formFields ? undefined : jsonBodyText(inner.data);
+
+  // Form-urlencoded: curlconverter parses --data into an object; convert it
+  // back to structured fields so the builder can infer per-field schemas.
+  const urlEncodedFields =
+    !formFields && isFormUrlEncoded && isRecord(inner.data)
+      ? Object.entries(inner.data).map(([name, value]) => ({
+          name,
+          value: String(value ?? ""),
+        }))
+      : undefined;
+
+  const bodyText =
+    formFields || urlEncodedFields ? undefined : jsonBodyText(inner.data);
 
   const auth = inner.auth;
   const bearer = isString(inner.oauth2_bearer)
@@ -290,9 +306,13 @@ function fromJson(output: unknown): RawRequest {
     headers,
     query: query && query.length > 0 ? query : undefined,
     bodyText,
-    mimeType: headerValue(headers, "content-type"),
-    formFields,
-    basicAuth: Array.isArray(auth) && auth.length > 0 ? true : undefined,
+    mimeType: contentType,
+    formFields: formFields ?? urlEncodedFields,
+    basicAuth:
+      (Array.isArray(auth) && auth.length > 0) ||
+      inner.auth_type === "basic"
+        ? true
+        : undefined,
     bearerToken: bearer,
   };
 }
@@ -304,17 +324,19 @@ let cached: CurlBackend | null | undefined;
 export function resolveBackend(): CurlBackend | undefined {
   if (cached !== undefined) return cached ?? undefined;
 
+  // Prefer the JSON generator: it preserves multipart form fields,
+  // form-urlencoded data, and auth metadata that the HAR generator drops.
+  const json = findFunction(["toJsonObject", "toJsonString", "toJson"]);
+
+  if (json) {
+    cached = { kind: "json", convert: (command) => fromJson(json.fn(command)) };
+    return cached;
+  }
+
   const har = findFunction(["toHar", "toHarString"]);
 
   if (har) {
     cached = { kind: "har", convert: (command) => fromHar(har.fn(command)) };
-    return cached;
-  }
-
-  const json = findFunction(["toJsonString", "toJson", "toJsonObject"]);
-
-  if (json) {
-    cached = { kind: "json", convert: (command) => fromJson(json.fn(command)) };
     return cached;
   }
 

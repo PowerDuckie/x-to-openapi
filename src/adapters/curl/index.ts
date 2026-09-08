@@ -27,6 +27,19 @@ const DEFAULT_MEDIA_TYPE: Record<string, string> = {
   binary: "application/octet-stream",
 };
 
+/** Common query parameter names that carry API keys. */
+const API_KEY_QUERY_NAMES = new Set([
+  "api_key",
+  "apikey",
+  "api-key",
+  "key",
+  "token",
+  "access_token",
+  "accesstoken",
+  "app_id",
+  "appid",
+]);
+
 function normalizeMethod(value: string | undefined): string {
   const token = value?.trim() ?? "";
   return token === "" ? "get" : token.toLowerCase();
@@ -86,6 +99,7 @@ const BEARER_FLAG = /(?:^|\s)--oauth2-bearer[\s=]+(?:'[^']*'|"[^"]*"|\S+)/;
 function detectAuth(
   command: string,
   headers: readonly Header[],
+  query: readonly ParameterValue[],
   raw: RawRequest,
 ): RequestAuth | undefined {
   const authorization = getHeader(headers, "authorization") ?? "";
@@ -103,10 +117,19 @@ function detectAuth(
   )
     return { type: "basic" };
 
-  const apiKey = headers.find((header) => /^x-api-key$/i.test(header.name));
-  return apiKey
-    ? { type: "apiKey", in: "header", name: apiKey.name }
-    : undefined;
+  const apiKeyHeader = headers.find((header) =>
+    /^x-api-key$/i.test(header.name),
+  );
+  if (apiKeyHeader)
+    return { type: "apiKey", in: "header", name: apiKeyHeader.name };
+
+  const apiKeyQuery = query.find((param) =>
+    API_KEY_QUERY_NAMES.has(param.name.toLowerCase()),
+  );
+  if (apiKeyQuery)
+    return { type: "apiKey", in: "query", name: apiKeyQuery.name };
+
+  return undefined;
 }
 
 function parseCookies(headers: readonly Header[]): ParameterValue[] {
@@ -127,6 +150,55 @@ function parseCookies(headers: readonly Header[]): ParameterValue[] {
         : [];
     })
     .filter((cookie) => cookie.name.length > 0);
+}
+
+const FORM_FLAG = /(?:^|\s)(?:-F|--form|--form-string)(?:[\s=]|$)/;
+
+function hasFormFlag(command: string): boolean {
+  return FORM_FLAG.test(command);
+}
+
+/**
+ * Post-processes a raw request when the command used -F/--form but the
+ * backend did not emit a content-type or structured fields (common with
+ * text-only multipart where curlconverter puts fields into `data`).
+ */
+function normalizeMultipart(raw: RawRequest, command: string): RawRequest {
+  if (!hasFormFlag(command)) return raw;
+
+  const mimeType = raw.mimeType ?? "multipart/form-data";
+
+  // If the backend already produced form fields, just ensure the media type.
+  if (raw.formFields && raw.formFields.length > 0) {
+    return { ...raw, mimeType };
+  }
+
+  // Text-only multipart: bodyText is JSON-serialized data from curlconverter.
+  if (raw.bodyText) {
+    try {
+      const parsed = JSON.parse(raw.bodyText);
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        !Array.isArray(parsed) &&
+        Object.values(parsed).every((v) => typeof v === "string")
+      ) {
+        return {
+          ...raw,
+          mimeType,
+          bodyText: undefined,
+          formFields: Object.entries(parsed).map(([name, value]) => ({
+            name,
+            value: String(value),
+          })),
+        };
+      }
+    } catch {
+      // Not JSON; leave as-is.
+    }
+  }
+
+  return { ...raw, mimeType };
 }
 
 export class CurlAdapter implements SourceAdapter<string | readonly string[]> {
@@ -170,13 +242,13 @@ export class CurlAdapter implements SourceAdapter<string | readonly string[]> {
       return [];
     }
 
-    if (backend.kind === "json") {
+    if (backend.kind === "har") {
       context.report({
         code: "CURL_BACKEND_JSON_FALLBACK",
         severity: "info",
         source: this.id,
         message:
-          "curlconverter.toHar() is unavailable; using the JSON generator. Upgrade to curlconverter >= 4 for richer multipart metadata.",
+          "Using the HAR generator (JSON generator unavailable). Multipart form fields may be incomplete.",
       });
     }
 
@@ -184,7 +256,10 @@ export class CurlAdapter implements SourceAdapter<string | readonly string[]> {
 
     for (const [sourceIndex, command] of sources.entries()) {
       try {
-        const raw = backend.convert(command);
+        let raw = backend.convert(command);
+
+        // Fix up multipart requests that the backend under-specified.
+        raw = normalizeMultipart(raw, command);
 
         if (!raw.url) throw new Error("curlconverter produced no request URL");
 
@@ -224,16 +299,20 @@ export class CurlAdapter implements SourceAdapter<string | readonly string[]> {
             value,
           }));
 
+        const body = buildBody({ ...raw, headers });
+        const auth = detectAuth(command, headers, query, raw);
+
         requests.push({
           source: this.id,
           sourceIndex,
           method: normalizeMethod(raw.method),
           url,
+          urlString: url.toString(),
           headers,
           query,
           cookies: parseCookies(headers),
-          body: buildBody({ ...raw, headers }),
-          auth: detectAuth(command, headers, raw),
+          body,
+          auth,
         });
       } catch (cause) {
         context.report({

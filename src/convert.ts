@@ -3,6 +3,7 @@ import { AdapterRegistry } from "./core/registry.js";
 import type {
   ConvertOptions,
   ConvertResult,
+  NormalizedRequest,
   ResolvedConvertOptions,
   SourceAdapter,
 } from "./core/types.js";
@@ -25,12 +26,25 @@ export const DEFAULT_OPTIONS: ResolvedConvertOptions = {
   strict: false,
 };
 
+/** Safety cap: inputs larger than this are rejected before parsing. */
+const MAX_INPUT_BYTES = 10 * 1024 * 1024; // 10 MB
+
+function estimateInputSize(input: unknown): number {
+  if (typeof input === "string") return input.length;
+  if (Array.isArray(input))
+    return input.reduce(
+      (sum, item) => sum + (typeof item === "string" ? item.length : 0),
+      0,
+    );
+  return 0;
+}
+
 function resolve(options: ConvertOptions): ResolvedConvertOptions {
   const resolved = { ...DEFAULT_OPTIONS, ...options };
 
   if (resolved.openapiVersion !== "3.2.0") {
     throw new TypeError(
-      `Unsupported openapiVersion: ${String(resolved.openapiVersion)}`,
+      `Unsupported openapiVersion: ${String(resolved.openapiVersion)}. Only "3.2.0" is supported.`,
     );
   }
   if (
@@ -42,8 +56,23 @@ function resolve(options: ConvertOptions): ResolvedConvertOptions {
   if (typeof resolved.title !== "string" || resolved.title.trim() === "") {
     throw new TypeError("title must be a non-empty string");
   }
+  if (typeof resolved.version !== "string" || resolved.version.trim() === "") {
+    throw new TypeError("version must be a non-empty string");
+  }
 
   return resolved;
+}
+
+/**
+ * Returns a JSON-safe copy of a NormalizedRequest, converting the URL object
+ * to a string so the result can be serialized with JSON.stringify().
+ */
+function serializableRequest(request: NormalizedRequest): NormalizedRequest {
+  return {
+    ...request,
+    url: request.url,
+    urlString: request.url.toString(),
+  } as NormalizedRequest;
 }
 
 export class XToOpenApi {
@@ -58,7 +87,7 @@ export class XToOpenApi {
     return this.#registry.ids();
   }
 
-  /** Single entry point. Pass `"auto"` to select an adapter via canHandle(). */
+  /** Single entry point. Pass `"auto" to select an adapter via canHandle(). */
   async convert(
     source: string,
     input: unknown,
@@ -66,6 +95,14 @@ export class XToOpenApi {
   ): Promise<ConvertResult> {
     const resolved = resolve(options);
     const bag = new DiagnosticBag(resolved.strict);
+
+    const inputSize = estimateInputSize(input);
+    if (inputSize > MAX_INPUT_BYTES) {
+      throw new ConversionError(
+        `Input exceeds maximum size of ${MAX_INPUT_BYTES} bytes (got ${inputSize} bytes).`,
+        [],
+      );
+    }
 
     const adapter =
       source === "auto"
@@ -78,7 +115,7 @@ export class XToOpenApi {
           })())
         : this.#registry.get(source);
 
-    let requests: ConvertResult["requests"] = [];
+    let requests: NormalizedRequest[] = [];
 
     try {
       requests = [
@@ -104,14 +141,24 @@ export class XToOpenApi {
     let documentValid = true;
 
     if (resolved.validate) {
-      const outcome = await validateOpenApi32(document);
-      documentValid = outcome.valid;
-      for (const diagnostic of outcome.diagnostics) bag.report(diagnostic);
+      try {
+        const outcome = await validateOpenApi32(document);
+        documentValid = outcome.valid;
+        for (const diagnostic of outcome.diagnostics) bag.report(diagnostic);
+      } catch (cause) {
+        bag.report({
+          code: "OAS_VALIDATOR_FAILED",
+          severity: "warning",
+          message:
+            cause instanceof Error ? cause.message : String(cause),
+          cause,
+        });
+      }
     }
 
     return {
       document,
-      requests,
+      requests: requests.map(serializableRequest),
       diagnostics: bag.items,
       ok: !bag.hasErrors(),
       documentValid,

@@ -1,4 +1,4 @@
-import type { Document as OpenApi32Document } from "@scalar/openapi-types/3.2";
+import type { Oas32Document as OpenApi32Document } from "@powerduck/openapi-parser";
 
 export type OpenApiDocument = OpenApi32Document;
 export type JsonObject = Record<string, unknown>;

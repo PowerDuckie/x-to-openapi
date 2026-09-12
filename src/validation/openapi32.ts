@@ -1,8 +1,8 @@
-import { validate } from "@scalar/openapi-parser";
+import { validate } from "@powerduck/openapi-parser";
 
 import type { Diagnostic, OpenApiDocument } from "../core/types.js";
 
-export type { Document as OpenApi32Document } from "@scalar/openapi-types/3.2";
+export type { Oas32Document as OpenApi32Document } from "@powerduck/openapi-parser";
 
 export interface ValidationOutcome {
   valid: boolean;

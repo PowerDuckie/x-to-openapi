@@ -40,7 +40,7 @@ export {
 
 /**
  * Canonical OpenAPI document type. All @powerduck libraries should import
- * this type rather than reaching into @scalar/openapi-types directly.
+ * this type rather than reaching into third-party type packages directly.
  */
 export type { OpenApiDocument } from "./core/types.js";
 
